@@ -4,6 +4,7 @@
    - Dynamic speed change based on length of question
 */
 #include <SoftwareSerial.h>
+#include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
@@ -31,6 +32,8 @@ int currentQuestionTicks;
 int scrollingPos = 128;
 int slidingPos = 0;
 
+String progressPacket;
+
 #define LEFT 8
 #define RIGHT 9
 #define SHUTTER 6
@@ -41,6 +44,7 @@ boolean sleeping;
 
 unsigned long prevSecond;
 int secondsElapsed;
+int percentDone;
 
 void setup() {
   cam.begin(9600);
@@ -53,7 +57,7 @@ void setup() {
   Serial.println("hello");
   // Start and clear display.
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  
+
   display.clearDisplay();
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -68,7 +72,7 @@ void setup() {
   pinMode(SLEEP, INPUT_PULLUP);
 
   attachInterrupt(digitalPinToInterrupt(SLEEP), wake, LOW);
-  
+
   // Get number of questions
   //cam.println("$");
   String incomingCommand;
@@ -78,7 +82,7 @@ void setup() {
       Serial.println("Received from camera...");
       char inByte = cam.read();
       if (inByte == 0x0A) numOfQuestions = incomingCommand.toInt();
-      else if(inByte == 'R') {
+      else if (inByte == 'R') {
         Serial.println("Cam online");
         cam.println("$");
       }
@@ -94,11 +98,11 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(LEFT) == LOW) {
+  if (digitalRead(LEFT) == LOW && !sleeping) {
     secondsElapsed = 0;
     if (currentQuestion != 0) moveUp();
   }
-  if (digitalRead(RIGHT) == LOW) {
+  if (digitalRead(RIGHT) == LOW && !sleeping) {
     secondsElapsed = 0;
     if (currentQuestion != numOfQuestions - 1) moveDown();
   }
@@ -120,35 +124,53 @@ void loop() {
     }
   }
 
-  //  savingScreen();
   if (!sleeping) {
-    if (millis() % 1000 == 0) secondsElapsed++;
-    if (secondsElapsed > 300) sleep();
     if (saving) {
-      savingScreen();
-      while (cam.available() > 0) {
-        char inByte = cam.read();
-        if (inByte == 0x0A) {
-          saving = false;
-          currentQuestionTicks++;
-        }
-      }
+      savingMode();
     }
     else scrollText();
   }
 }
 
-void savingScreen() {
+void savingMode() {
+  if (cam.available() > 0) {
+    char inByte = cam.read();
+    Serial.print(inByte);
+    if (inByte == '\n') {
+      Serial.print("[EOP]");
+      progressPacket.trim();
+      Serial.println(progressPacket);
+      if (progressPacket == "R") {
+        saving = false;
+        currentQuestionTicks++;
+      }
+      else {
+        percentDone = progressPacket.toInt();
+        savingScreen(percentDone);
+      }
+      progressPacket = "";
+    } else progressPacket += inByte;
+  }
+}
+
+void savingScreen(int percent) {
   currentMillis = millis();
   if (currentMillis - prevMillis >= SPEED_SAVING) {
     display.clearDisplay();
     if (savingAnimationCounter > 6) savingAnimationCounter = 0;
     // Draw diagonal lines.
     for (int i = -32; i < 26; i++) display.drawLine(i * 7 + 32 + savingAnimationCounter, 0, i * 7 + savingAnimationCounter, 32, WHITE);
+    
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(16, 16);
+    display.setTextWrap(false);
+    display.print(percent);
+    display.print("%");
     display.display();
-
+    
     savingAnimationCounter++;
-    Serial.println(savingAnimationCounter);
+    //Serial.println(savingAnimationCounter);
     prevMillis = currentMillis;
   }
 }
@@ -240,6 +262,8 @@ void takePicture() {
     delay(10);
   }
   delay(500);
+  percentDone = 0;
+  progressPacket = "";
   saving = true;
 }
 
