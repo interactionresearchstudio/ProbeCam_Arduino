@@ -98,28 +98,30 @@ void setup() {
 }
 
 void loop() {
-  if (digitalRead(LEFT) == LOW && !sleeping) {
-    secondsElapsed = 0;
-    if (currentQuestion != 0) moveUp();
-  }
-  if (digitalRead(RIGHT) == LOW && !sleeping) {
-    secondsElapsed = 0;
-    if (currentQuestion != numOfQuestions - 1) moveDown();
-  }
-  if (digitalRead(SHUTTER) == LOW) {
-    if (!sleeping) {
+  if (!saving && !sleeping) {
+    if (digitalRead(LEFT) == LOW && !sleeping) {
       secondsElapsed = 0;
-      takePicture();
+      if (currentQuestion != 0) moveUp();
     }
-  }
-  if (digitalRead(SLEEP) == LOW) {
-    if (sleeping) {
-      sleeping = false;
-      delay(500);
+    if (digitalRead(RIGHT) == LOW && !sleeping) {
+      secondsElapsed = 0;
+      if (currentQuestion != numOfQuestions - 1) moveDown();
     }
-    else {
-      if (!saving) {
-        sleep();
+    if (digitalRead(SHUTTER) == LOW) {
+      if (!sleeping) {
+        secondsElapsed = 0;
+        takePicture();
+      }
+    }
+    if (digitalRead(SLEEP) == LOW) {
+      if (sleeping) {
+        sleeping = false;
+        delay(500);
+      }
+      else {
+        if (!saving) {
+          sleep();
+        }
       }
     }
   }
@@ -160,15 +162,26 @@ void savingScreen(int percent) {
     if (savingAnimationCounter > 6) savingAnimationCounter = 0;
     // Draw diagonal lines.
     for (int i = -32; i < 26; i++) display.drawLine(i * 7 + 32 + savingAnimationCounter, 0, i * 7 + savingAnimationCounter, 32, WHITE);
-    
+
     display.setTextSize(2);
     display.setTextColor(WHITE);
-    display.setCursor(16, 16);
     display.setTextWrap(false);
-    display.print(percent);
-    display.print("%");
+    if (percent < 15) {
+      display.setCursor(28, 10);
+      display.print("Saving");
+    }
+    else if (percent == 100) {
+      display.setCursor(42, 10);
+      display.print(percent);
+      display.print("%");
+    }
+    else {
+      display.setCursor(50, 10);
+      display.print(percent);
+      display.print("%");
+    }
     display.display();
-    
+
     savingAnimationCounter++;
     //Serial.println(savingAnimationCounter);
     prevMillis = currentMillis;
