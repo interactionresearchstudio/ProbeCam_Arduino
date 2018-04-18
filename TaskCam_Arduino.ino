@@ -1,3 +1,11 @@
+/* Taskcam v2 software for IRS Taskcam v2 Camera Shield + IRS Taskcam Camera Module */
+/* Written by Andy Sheen 2017/2018 */
+
+/*~~~~~~~~~~TO DO~~~~~~~~~~*/
+/*
+   - Add photo capture animation
+   - Add Contrast/Light/FX menu (bonus)
+*/
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <Wire.h>
