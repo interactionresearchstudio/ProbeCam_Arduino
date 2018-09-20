@@ -105,6 +105,11 @@ void setup() {
   display.clearDisplay();
   display.setCursor(0, 26);
   display.setTextWrap(true);
+  display.print("Select a Task");
+  display.display();
+  delay(2000);
+  display.clearDisplay();
+  display.setCursor(0, 26);
   display.print(inputBuffer);
 }
 
@@ -136,61 +141,35 @@ void loop() { // run over and over
     // checkPwr();
   }
   if (digitalRead(3) == 1 && flag == true) {
-    // checkPwr();
-    analogWrite(LED, 5);
     flag = false;
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    // display.setCursor(10, 10);
-    // display.clearDisplay();
-    // display.println("taking photo");
-    // display.display();
-    //delay(1);
-    //display.display();
     digitalWrite(10, 1);
-    analogWrite(LED, 0);
-    delay(300);
+    display.clearDisplay();
+    display.setCursor(0, 26);
+    display.println("Task Selected");
+    display.display();
+    delay(400);
     initCam();
-    delay(500);
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setCursor(10, 40);
-    display.print("HOLD STILL");
-    display.display();
-    delay(400);
-    display.setTextSize(3);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("3");
-    display.display();
-    delay(400);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("2");
-    display.display();
-    delay(400);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("1");
-    display.display();
-    delay(400);
-    display.clearDisplay();
+    delay(200);
     indexQs();
+    // display.setCursor(10, 40);
+    delay(800);
+    display.setTextSize(1);
+    //   display.clearDisplay();
+    display.println("Take Photo now");
+    display.display();
+    display.clearDisplay();
+    byte picCam = 0;
+    while (picCam == 0) {
+      if (digitalRead(3) == 0) {
+        picCam = 1;
+      }
+    }
+    delay(200);
+    analogWrite(LED, 100);
     drawCam(0);
-    drawCam(1);
-    display.invertDisplay(0);
-    delay(1000);
     capturePic();
     delay(1500);
-    for (int i = 20; i < 50; i++) {
-      analogWrite(LED, i);
-      delay(5);
-    }
-    delay(10);
     getQuestion(currentQuestion);
-
-    analogWrite(LED, 0);
     display.setCursor(0, 25);
     display.clearDisplay();
     display.println(inputBuffer);
@@ -321,7 +300,7 @@ void capturePic() {
   mySerial.write((uint8_t)currentQuestion);
   mySerial.write(0x0D);
   mySerial.write(0x0A);
-  delay(500);
+  delay(1400);
   while (mySerial.available() < 0) {
     delay(1);
   }
@@ -343,6 +322,7 @@ void capturePic() {
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(35, 40);
+    analogWrite(LED, 0);
     saving();
     display.clearDisplay();
 
@@ -460,7 +440,7 @@ void sleepCheck() {
     display.setCursor(15, 20);
     display.clearDisplay();
     //Maybe use PWR icon?
-    display.println("Sleep");
+    // display.println("Sleep");
     display.display();
     delay(300);
     display.clearDisplay();
@@ -539,7 +519,7 @@ void saving() {
   display.clearDisplay();
   display.drawBitmap(32, 0, saved, 64, 64, 1);
   display.display();
-  delay(1000);
+  delay(800);
 }
 
 void drawCam(int in) {
@@ -547,10 +527,10 @@ void drawCam(int in) {
 
   display.drawBitmap(32, 8, cam_logo, 64, 49, 1);
   display.display();
-  delay(500);
-  display.invertDisplay(in);
-  display.display();
-  delay(100);
+  // delay(500);
+  // display.invertDisplay(in);
+  // display.display();
+  // delay(100);
   //display.invertDisplay(0);
   //display.display();
   //delay(100);
