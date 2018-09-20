@@ -25,6 +25,8 @@
 #define SHUTTER 3
 #define LED 11
 
+#define DEG2RAD 0.0174532925
+
 Adafruit_SSD1306 display(OLED_RESET);
 boolean LEFT_DEBOUNCE = false;
 boolean RIGHT_DEBOUNCE = false;
@@ -152,42 +154,68 @@ void loop() { // run over and over
     analogWrite(LED, 0);
     delay(300);
     initCam();
-    delay(500);
+    delay(100);
+    indexQs();
     display.clearDisplay();
     display.setTextSize(1);
-    display.setCursor(10, 40);
-    display.print("HOLD STILL");
+    display.setCursor(0, 25);
+    display.print("Getting ready");
+    display.setCursor(0, 45);
+    display.print("Hold still");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 20, 8, 8, 8, WHITE);
     display.display();
-    delay(400);
-    display.setTextSize(3);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("3");
-    display.display();
-    delay(400);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("2");
-    display.display();
-    delay(400);
-    display.clearDisplay();
-    display.setCursor(46, 50);
-    display.print("1");
-    display.display();
-    delay(400);
-    display.clearDisplay();
-    indexQs();
-    drawCam(0);
-    drawCam(1);
-    display.invertDisplay(0);
     delay(1000);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 25);
+    display.print("Getting ready");
+    display.setCursor(0, 45);
+    display.print("Hold still");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 40, 8, 8, 8, WHITE);
+    display.display();
+    delay(1000);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 25);
+    display.print("Getting ready");
+    display.setCursor(0, 45);
+    display.print("Hold still");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 60, 8, 8, 8, WHITE);
+    display.display();
+    delay(500);
     capturePic();
-    delay(1500);
-    for (int i = 20; i < 50; i++) {
-      analogWrite(LED, i);
-      delay(5);
-    }
-    delay(10);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 25);
+    display.print("Taking photo");
+    display.setCursor(0, 45);
+    display.print("Hold still");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 80, 8, 8, 8, WHITE);
+    display.display();
+    delay(1000);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 25);
+    display.print("Taking photo");
+    display.setCursor(0, 45);
+    display.print("Hold still");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 100, 8, 8, 8, WHITE);
+    display.display();
+    delay(1000);
+    display.clearDisplay();
+    display.setTextSize(1);
+    display.setCursor(0, 25);
+    display.print("Saving photo");
+    display.drawCircle(118, 54, 8, WHITE);
+    fillArc2(118, 54, 0, 120, 8, 8, 8, WHITE);
+    display.display();
+    delay(1000);
+
     getQuestion(currentQuestion);
 
     analogWrite(LED, 0);
@@ -196,7 +224,6 @@ void loop() { // run over and over
     display.println(inputBuffer);
     applyTicks();
     display.display();
-    // getQuestion(currentQuestion);
     digitalWrite(10, 0);
   }
 
@@ -338,14 +365,6 @@ void capturePic() {
     display.display();
     delay(600);
     display.display();
-  } else {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(35, 40);
-    saving();
-    display.clearDisplay();
-
   }
   while (mySerial.available() > 0) {
     mySerial.read();
@@ -534,28 +553,6 @@ void poweringDown() {
   display.display();
   delay(1000);
 }
-
-void saving() {
-  display.clearDisplay();
-  display.drawBitmap(32, 0, saved, 64, 64, 1);
-  display.display();
-  delay(1000);
-}
-
-void drawCam(int in) {
-  uint8_t color = 1;
-
-  display.drawBitmap(32, 8, cam_logo, 64, 49, 1);
-  display.display();
-  delay(500);
-  display.invertDisplay(in);
-  display.display();
-  delay(100);
-  //display.invertDisplay(0);
-  //display.display();
-  //delay(100);
-}
-
 void scrollText() {
   scrollingPos = 0;
   currentMillis = millis();
@@ -647,4 +644,54 @@ void moveDown() {
 
 
 }
+
+// #########################################################################
+// Draw a circular or elliptical arc with a defined thickness
+// #########################################################################
+
+// x,y == coords of centre of arc
+// start_angle = 0 - 359
+// seg_count = number of 3 degree segments to draw (120 => 360 degree arc)
+// rx = x axis radius
+// yx = y axis radius
+// w  = width (thickness) of arc in pixels
+// colour = 16 bit colour value
+// Note if rx and ry are the same then an arc of a circle is drawn
+
+int fillArc2(int x, int y, int start_angle, int seg_count, int rx, int ry, int w, unsigned int colour)
+{
+
+  byte seg = 3; // Segments are 3 degrees wide = 120 segments for 360 degrees
+  byte inc = 3; // Draw segments every 3 degrees, increase to 6 for segmented ring
+
+  // Calculate first pair of coordinates for segment start
+  float sx = cos((start_angle - 90) * DEG2RAD);
+  float sy = sin((start_angle - 90) * DEG2RAD);
+  uint16_t x0 = sx * (rx - w) + x;
+  uint16_t y0 = sy * (ry - w) + y;
+  uint16_t x1 = sx * rx + x;
+  uint16_t y1 = sy * ry + y;
+
+  // Draw colour blocks every inc degrees
+  for (int i = start_angle; i < start_angle + seg * seg_count; i += inc) {
+
+    // Calculate pair of coordinates for segment end
+    float sx2 = cos((i + seg - 90) * DEG2RAD);
+    float sy2 = sin((i + seg - 90) * DEG2RAD);
+    int x2 = sx2 * (rx - w) + x;
+    int y2 = sy2 * (ry - w) + y;
+    int x3 = sx2 * rx + x;
+    int y3 = sy2 * ry + y;
+
+    display.fillTriangle(x0, y0, x1, y1, x2, y2, colour);
+    display.fillTriangle(x1, y1, x2, y2, x3, y3, colour);
+
+    // Copy segment end to sgement start for next segment
+    x0 = x2;
+    y0 = y2;
+    x1 = x3;
+    y1 = y3;
+  }
+}
+
 
