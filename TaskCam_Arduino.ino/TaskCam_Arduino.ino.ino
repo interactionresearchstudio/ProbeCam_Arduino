@@ -79,6 +79,11 @@ void setup() {
   //LED
   pinMode(LED, OUTPUT);
 
+  delay(1000);
+  if (digitalRead(3) != 0) {
+    digitalWrite(PWR_PIN, 0);
+  }
+
   //Serial.begin(38400);
   //while (!Serial) {
   //}
@@ -155,7 +160,7 @@ void loop() { // run over and over
     delay(800);
     display.setTextSize(1);
     //   display.clearDisplay();
-    display.println("Take Photo now");
+    display.println("take photo now");
     display.display();
     display.clearDisplay();
     byte picCam = 0;
