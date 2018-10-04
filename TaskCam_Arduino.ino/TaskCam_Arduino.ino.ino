@@ -121,7 +121,7 @@ void setup() {
 void loop() { // run over and over
 
   sleepCheck();
-  checkButtons();
+  //checkButtons();
   checkQuestions();
   //display.clearDisplay();
   //display.setTextWrap(true);
@@ -216,6 +216,15 @@ void getQuestion(uint8_t question) {
   while ((char)mySerial.peek() == '#') {
     questionTicks++;
     mySerial.read();
+  }
+  if (questionTicks >= 8) {
+    display.clearDisplay();
+    display.setCursor(0, 30);
+    display.print("Maximum Picture amount reached");
+    display.display();
+    while (1) {
+
+    }
   }
   //  while((char)mySerial.peek() > 57 && (char)mySerial.peek() < 48 ){
   // }
