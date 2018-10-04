@@ -12,7 +12,7 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSans9pt7b.h>
+#include "font.h"
 #include "bitmaps.h"
 
 #define OLED_RESET 4
@@ -89,7 +89,7 @@ void setup() {
   //}
   //Camera Module Interface
   mySerial.begin(38400);
-  display.setFont(&FreeSans9pt7b);
+  display.setFont(&Dialog_plain_12);
   Wire.begin();
   Wire.beginTransmission(60);
   byte error = Wire.endTransmission();
