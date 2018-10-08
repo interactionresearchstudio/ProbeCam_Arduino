@@ -222,8 +222,11 @@ void getQuestion(uint8_t question) {
     display.setCursor(0, 30);
     display.print("Maximum Picture amount reached");
     display.display();
-    while (1) {
-
+    while(1) {
+      delay(5000);
+      display.clearDisplay();
+      display.display();
+      digitalWrite(PWR_PIN, 0);
     }
   }
   //  while((char)mySerial.peek() > 57 && (char)mySerial.peek() < 48 ){
