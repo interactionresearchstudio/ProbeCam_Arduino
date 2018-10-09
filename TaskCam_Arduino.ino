@@ -12,9 +12,10 @@
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSans9pt7b.h>
 #include "bitmaps.h"
+#include "font.h"
 
+// Pins
 #define OLED_RESET 4
 #define PWR_PIN 2
 #define CAM_PWR 10
@@ -26,333 +27,330 @@
 #define LED 11
 
 Adafruit_SSD1306 display(OLED_RESET);
-boolean LEFT_DEBOUNCE = false;
-boolean RIGHT_DEBOUNCE = false;
 
+boolean leftDebounce = false;
+boolean rightDebounce = false;
 bool dir;
-String prevQuestion;
-
+char prevQuestion[64];
 long buttonCheck;
 static int buttonInterval = 20;
 
 long sleepMillis = 0;
-static const long sleepTime = 40000;
+#define SLEEPTIME 40000
 boolean newQuestion = false;
 
 boolean buttonHeld = false;
 boolean pwrdwn = false;
 long buttonHeldCount;
-static long offDuration = 2000;
+#define OFF_HOLD_DURATION 2000
 
 bool buttonPressed = false;
 
-int currentQuestion = 0;
-//TO FIX
-int numQuestions = 16;
+int currentQuestionIndex = 0;
+int numOfQuestions = 16;
 byte questionTicks = 0;
-byte currQlength;
-
 long prevMillis;
 long currentMillis;
-static int SPEED_SCROLLING = 50;
+#define SPEED_SCROLLING 50
 int scrollingPos;
 char inputBuffer[64];
-byte questionLength = 0;
 bool flag = false;
-SoftwareSerial mySerial(CAM_RX, CAM_TX); // RX, TX
+
+SoftwareSerial camSerial(CAM_RX, CAM_TX); // RX, TX
+
+//#define DEBUG
 
 void setup() {
 
-
-  //PWR Pin
+  // Power Pin
   pinMode(PWR_PIN, OUTPUT);
-  digitalWrite(PWR_PIN, 1);
+  digitalWrite(PWR_PIN, HIGH);
 
-  //CAM PIN
+  // Camera power pin
   pinMode(CAM_PWR, OUTPUT);
 
-  //Buttons
+  // Buttons
   pinMode(SHUTTER, INPUT_PULLUP);
   pinMode(RIGHT_BUTTON, INPUT_PULLUP);
   pinMode(LEFT_BUTTON, INPUT_PULLUP);
 
-  //LED
+  // LED
   pinMode(LED, OUTPUT);
 
   delay(1000);
-  if (digitalRead(3) != 0) {
+
+  if (digitalRead(SHUTTER) != 0) {
     digitalWrite(PWR_PIN, 0);
   }
 
-  //Serial.begin(38400);
-  //while (!Serial) {
-  //}
-  //Camera Module Interface
-  mySerial.begin(38400);
-  display.setFont(&FreeSans9pt7b);
+  // Camera Module Interface
+  camSerial.begin(38400);
+
+#ifdef DEBUG
+  Serial.begin(9600);
+#endif
+
+  // Display
+  display.setFont(&Monospaced_plain_12);
   Wire.begin();
   Wire.beginTransmission(60);
-  byte error = Wire.endTransmission();
-  if (error == 0) {
+  if (Wire.endTransmission() == 0) {
     display.begin(SSD1306_SWITCHCAPVCC, 60);
   } else {
     display.begin(SSD1306_SWITCHCAPVCC, 61);
   }
   display.clearDisplay();
-  digitalWrite(CAM_PWR, 1);
-  startUpAni();
-  initCam();
-  indexQs();
-  getQuestion(currentQuestion);
+
+  // Get first question
+  digitalWrite(CAM_PWR, HIGH);
+  startUpScreen();
+  initialiseCamera();
+  indexQuestions();
+  getQuestion(currentQuestionIndex);
+
   delay(500);
+
   digitalWrite(CAM_PWR, 0);
-  //display.clearDisplay();
+
+  // Display "Select a Task"
   display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setTextWrap(true);
   display.setCursor(0, 26);
   display.setTextWrap(true);
-  display.print("Select a Task");
+  display.print(F("Select a Task"));
+#ifdef DEBUG
+  Serial.println(F("Select"));
+#endif
   display.display();
   delay(2000);
+
+  // Display first question
   display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setTextWrap(true);
   display.setCursor(0, 26);
   display.print(inputBuffer);
+  display.display();
 }
 
 void loop() { // run over and over
 
-  sleepCheck();
-  checkButtons();
-  checkQuestions();
-  //display.clearDisplay();
-  //display.setTextWrap(true);
-  // display.setTextColor(WHITE);
-  // display.setCursor(0, 25);
-  // display.println(inputBuffer);
-  // applyTicks();
-  // display.display();
-  //DEV//
-  // display.setCursor(0, 26);
-  // display.setTextWrap(true);
-  // display.print(inputBuffer);
-  //tick(5, 8);
-  applyTicks();
-  display.display();
+  updateSleep();
+  updateButtons();
+  updateQuestion();
 
   delay(1);
 
-  checkPwr();
-  if (digitalRead(3) == 0 && flag == false) {
+  updatePowerOff();
+  if (digitalRead(SHUTTER) == 0 && flag == false) {
     flag = true;
-    // checkPwr();
   }
-  if (digitalRead(3) == 1 && flag == true) {
+  if (digitalRead(SHUTTER) == 1 && flag == true) {
     flag = false;
     digitalWrite(10, 1);
     display.clearDisplay();
-    display.setCursor(0, 26);
-    display.println("Task Selected");
+    display.setCursor(6, 26);
+    display.println(F("Task Selected"));
     display.display();
     delay(400);
-    initCam();
+    initialiseCamera();
     delay(200);
-    indexQs();
-    // display.setCursor(10, 40);
+    indexQuestions();
     delay(800);
     display.setTextSize(1);
-    //   display.clearDisplay();
-    display.println("take photo now");
+    display.setCursor(17, 42);
+    display.println(F("Take Photo"));
     display.display();
-    display.clearDisplay();
     byte picCam = 0;
     while (picCam == 0) {
-      if (digitalRead(3) == 0) {
+      if (digitalRead(SHUTTER) == 0) {
         picCam = 1;
       }
     }
     delay(200);
-    analogWrite(LED, 100);
-    drawCam(0);
-    capturePic();
+    analogWrite(LED, 255);
+    drawCamera();
+    capturePicture();
     delay(1500);
-    getQuestion(currentQuestion);
+    getQuestion(currentQuestionIndex);
     display.setCursor(0, 25);
     display.clearDisplay();
     display.println(inputBuffer);
-    applyTicks();
+    drawTicks(questionTicks);
     display.display();
-    // getQuestion(currentQuestion);
+    // getQuestion(currentQuestionIndex);
     digitalWrite(10, 0);
   }
 
 }
 
 void getQuestion(uint8_t question) {
-  while (mySerial.available() > 0) {
-    mySerial.read();
+  // Flush serial
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
+
   // q + question num return Qs
-  mySerial.write(0x71);
-  mySerial.write((byte)question);
-  mySerial.write(0x0D);
-  mySerial.write(0x0A);
+  camSerial.write(0x71);
+  camSerial.write((byte)question);
+  camSerial.write(0x0D);
+  camSerial.write(0x0A);
 
-
-  //prints out the Question.... TO FIX
-  while (mySerial.available() < 63) {
-    //  Serial.println(mySerial.available());
-    delay(1);
-  }
+  // Empty input buffer and question ticks.
   for (int i = 0; i < 64 ; i++) {
     inputBuffer[i] = 0;
   }
   questionTicks = 0;
 
-  //while ((char)mySerial.peek() != 0x06 && (char)mySerial.peek() != '#') {
-  //   mySerial.read();
-  //}
-  while ((char)mySerial.peek() == 0x06) {
-    mySerial.read();
+  // Wait for 64 characters.
+  while (camSerial.available() < 63) {
+    delay(1);
   }
-  while ((char)mySerial.peek() == '#') {
+
+  // Throw away ACKs?
+  while ((char)camSerial.peek() == 0x06) {
+    camSerial.read();
+  }
+
+  // Count question ticks.
+  while ((char)camSerial.peek() == '#') {
     questionTicks++;
-    mySerial.read();
-  }
-  //  while((char)mySerial.peek() > 57 && (char)mySerial.peek() < 48 ){
-  // }
-  char lengthRead = 64 - questionTicks;
-  for (int i = 0; i < lengthRead; i++) {
-    inputBuffer[i] = (char)mySerial.read();
+    camSerial.read();
   }
 
-  for (uint8_t j = 63; j > 0; j--) {
-    if (inputBuffer[j] != 0 && inputBuffer[j] != -1 ) {
-      currQlength = j;
-      //Serial.println("PRINTING");
-      // Serial.println((int)inputBuffer[j]);
-      // goto printTime;
-    }
+  // Read question.
+  for (uint8_t i = 0; i < 64 - questionTicks; i++) {
+    inputBuffer[i] = (char)camSerial.read();
+#ifdef DEBUG
+    Serial.print(inputBuffer[i]);
+#endif
   }
+#ifdef DEBUG
+  Serial.println();
+#endif
 
-  //printTime:
-  //Serial.println(inputBuffer);
-  //Serial.println();
-  //Serial.print("NUM OF TICKS: ");
-  //Serial.print(questionTicks);
-  //Serial.println();
-  //Serial.print("Q LENGTH: ");
-  //Serial.print(currQlength);
-  //Serial.println();
-  while (mySerial.available() > 0) {
-    mySerial.read();
+  // Flush serial.
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
-
-
-
-
 }
 
-void initCam() {
+// Initialise camera module (blocking)
+void initialiseCamera() {
+  camSerial.write('~');
+  camSerial.write('i');
+  camSerial.write(0x0D);
+  camSerial.write(0x0A);
 
-  //Init CAM
-  mySerial.write('~');
-  mySerial.write('i');
-  mySerial.write(0x0D);
-  mySerial.write(0x0A);
   delay(100);
-  while (mySerial.available() < 2) {
-    //WAIT
-    delay(1);
+
+  while (camSerial.available() < 2) {
+    // Wait for "INI"
   }
-  //Wait for 'INI'
-  for (int i = 0 ; i < 4; i++) {
-    //Serial.print((char)mySerial.read());
+
+#ifdef DEBUG
+  Serial.println(F("Cam init'd"));
+#endif
+
+  // Flush serial
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
-  while (mySerial.available() > 0) {
-    mySerial.read();
-  }
-  // Serial.println();
 }
 
-void indexQs() {
-  while (mySerial.available() > 0) {
-    mySerial.read();
+// Index questions within SD card
+void indexQuestions() {
+  // Flush serial
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
-  //Index Questions
-  mySerial.write(0x7E);
-  mySerial.write(0x2B);
-  mySerial.write(0x0D);
-  mySerial.write(0x0A);
-  while (mySerial.available() < 2) {
-    delay(1);
+
+  //Index Questions command
+  camSerial.write(0x7E);
+  camSerial.write(0x2B);
+  camSerial.write(0x0D);
+  camSerial.write(0x0A);
+
+  while (camSerial.available() < 2) {
+    // Wait for reply.
   }
-  numQuestions = (int)mySerial.read();
-  //Serial.print("NUMBER OF QS: ");
-  //Serial.println(numQuestions);
-  while (mySerial.available() > 0) {
-    mySerial.read();
+
+  numOfQuestions = (int)camSerial.read();
+
+  // Flush serial
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
-  // Serial.println();
-  delay(300);
 }
 
-
-void capturePic() {
-  //Take picture
-  while (mySerial.available() > 0) {
-    mySerial.read();
+// Capture picture
+void capturePicture() {
+  // Flush serial
+  while (camSerial.available() > 0) {
+    camSerial.read();
   }
-  mySerial.write(0x21);
-  mySerial.write((uint8_t)currentQuestion);
-  mySerial.write(0x0D);
-  mySerial.write(0x0A);
+
+  camSerial.write(0x21);
+  camSerial.write((uint8_t)currentQuestionIndex);
+  camSerial.write(0x0D);
+  camSerial.write(0x0A);
   delay(1400);
-  while (mySerial.available() < 0) {
+
+  while (camSerial.available() < 0) {
     delay(1);
   }
+
   //Ack for when picture finished saving... needs fixing as hang over from oversized Q in buffer
-  byte in = mySerial.read();
-  // Serial.println((int)in);
+  byte in = camSerial.read();
   if (in == 0x06) {
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(10, 0);
     display.clearDisplay();
-    display.println("       ERROR");
+    display.println(F("       ERROR"));
     display.display();
     delay(600);
     display.display();
-  } else {
+  }
+  else {
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
     display.setCursor(35, 40);
     analogWrite(LED, 0);
-    saving();
-    display.clearDisplay();
+    drawSaving();
+    display.display();
+    delay(800);
+  }
+  while (camSerial.available() > 0) {
+    camSerial.read();
+  }
 
-  }
-  while (mySerial.available() > 0) {
-    mySerial.read();
-  }
+  // Wait for saving to complete
+  delay(1500);
 }
 
-void checkPwr() {
+void updatePowerOff() {
   int butRead = digitalRead(SHUTTER);
   if (butRead == 0 && buttonHeld == false) {
     sleepMillis = millis();
-    Serial.println("BUTTON ON");
     buttonHeldCount = millis();
     buttonHeld = true;
   }
   if (buttonHeld == true) {
-    if (millis() - buttonHeldCount > offDuration) {
-      Serial.println("Powering down");
+    if (millis() - buttonHeldCount > OFF_HOLD_DURATION) {
+#ifdef DEBUG
+      Serial.println(F("Powering down"));
+#endif
       display.clearDisplay();
       display.setTextSize(1);
       display.setTextColor(WHITE);
       display.setCursor(0, 38);
-      poweringDown();
+      drawPowerdown();
       delay(300);
       pwrdwn = true;
       while (1) {
@@ -366,114 +364,114 @@ void checkPwr() {
   }
   if (buttonHeld == true && butRead == 1) {
     buttonHeld = false;
-    //Serial.println("OFF");
   }
 }
 
-void checkButtons() {
+void updateButtons() {
 
   if (millis() - buttonCheck > buttonInterval) {
     buttonCheck = millis();
 
-    if (digitalRead(LEFT_BUTTON) == LOW && LEFT_DEBOUNCE == false) {
+    if (digitalRead(LEFT_BUTTON) == LOW && leftDebounce == false) {
       sleepMillis = millis();
-      LEFT_DEBOUNCE = true;
-      currentQuestion--;
+      leftDebounce = true;
+      currentQuestionIndex--;
       newQuestion = true;
       dir = false;
       analogWrite(LED, 10);
     }
-    if (digitalRead(LEFT_BUTTON) == HIGH && LEFT_DEBOUNCE == true) {
-      LEFT_DEBOUNCE = false;
+    if (digitalRead(LEFT_BUTTON) == HIGH && leftDebounce == true) {
+      leftDebounce = false;
       analogWrite(LED, 0);
     }
 
-    if (digitalRead(RIGHT_BUTTON) == LOW && RIGHT_DEBOUNCE == false) {
+    if (digitalRead(RIGHT_BUTTON) == LOW && rightDebounce == false) {
       sleepMillis = millis();
-      RIGHT_DEBOUNCE = true;
-      currentQuestion++;
+      rightDebounce = true;
+      currentQuestionIndex++;
       dir = true;
       newQuestion = true;
       analogWrite(LED, 10);
     }
-    if (digitalRead(RIGHT_BUTTON) == HIGH && RIGHT_DEBOUNCE == true) {
-      RIGHT_DEBOUNCE = false;
+    if (digitalRead(RIGHT_BUTTON) == HIGH && rightDebounce == true) {
+      rightDebounce = false;
       analogWrite(LED, 0);
     }
 
-    if (currentQuestion >= numQuestions) {
-      currentQuestion = 0;
+    if (currentQuestionIndex >= numOfQuestions) {
+      currentQuestionIndex = 0;
     }
 
-    if (currentQuestion < 0) {
-      currentQuestion = numQuestions - 1;
+    if (currentQuestionIndex < 0) {
+      currentQuestionIndex = numOfQuestions - 1;
     }
 
   }
 }
 
 
-void checkQuestions() {
+void updateQuestion() {
   if (newQuestion) {
     newQuestion = false;
     digitalWrite(CAM_PWR, 1);
     //display.clearDisplay();
+//    for (byte i = 0; i < 60; i++) {
+//      display.drawCircle(118, 54, 8, WHITE);
+//      fillArc2(118, 54, 0, i, 8, 8, 8, WHITE);
+//      display.display();
+//      delay(12);
+//    }
     delay(1500);
-    //initCam();
-    indexQs();
-    prevQuestion = inputBuffer;
-
-    //Serial.print("CURRENT QUESTION: ");
-    // Serial.println(currentQuestion);
-    getQuestion(currentQuestion);
+    //initialiseCamera();
+    indexQuestions();
+    delay(300);
+    strncpy(prevQuestion, inputBuffer, 64);
+    getQuestion(currentQuestionIndex);
     if (dir == 1) {
       moveUp();
     } else {
       moveDown();
     }
-    // display.clearDisplay();
+    drawTicks(questionTicks);
+    display.display();
     scrollingPos = 0;
     delay(50);
     digitalWrite(CAM_PWR, 0);
   }
 }
 
-void sleepCheck() {
-  if (millis() - sleepMillis > sleepTime) {
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(15, 20);
+// Checks if enough time has passed to put the camera to sleep.
+void updateSleep() {
+  if (millis() - sleepMillis > SLEEPTIME) {
     display.clearDisplay();
-    //Maybe use PWR icon?
-    // display.println("Sleep");
+    display.drawBitmap(32, 0, powering, 64, 64, 1);
     display.display();
-    delay(300);
-    display.clearDisplay();
-    display.display();
-    digitalWrite(CAM_PWR, 0);
-    digitalWrite(PWR_PIN, 0);
+    delay(1000);
+    digitalWrite(CAM_PWR, LOW);
+    digitalWrite(PWR_PIN, LOW);
   }
 }
 
-void startUpAni() {
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(0, 20);
+// Displays the ProbeTools logo.
+void startUpScreen() {
+#ifdef DEBUG
+  Serial.println(F("startup"));
+#endif
   display.clearDisplay();
   display.drawBitmap(0, 0, logo16_glcd_bmp, 128, 64, 1);
   display.display();
   delay(1700);
-  // Serial.println("OI");
-
 }
 
+// Draw a single tick.
 void tick(int x, int y) {
   display.drawLine(x, y - 3, x + 3, y, WHITE);
   display.drawLine(x + 3, y, x + 3 + 6, y - 6, WHITE);
 }
 
-void applyTicks() {
-  byte tickNum = questionTicks;
+// Draw a number of ticks
+void drawTicks(byte tickNum) {
+  //byte tickNum = questionTicks;
   if (tickNum) {
     for (int i = 0; i < tickNum; i++) {
       tick(5 + (i * 12), 8);
@@ -481,91 +479,31 @@ void applyTicks() {
   }
 }
 
-byte getNumTicks(byte question) {
-  while (mySerial.available() > 0) {
-    mySerial.read();
-  }
-  mySerial.write(0x22);
-  mySerial.write((byte)question);
-  mySerial.write(0x0D);
-  mySerial.write(0x0A);
-  while (mySerial.available() < 0) {
-    delay(1);
-  }
-  byte in = mySerial.read();
-  questionTicks = in;
-}
-
-void loading(int timeIn) {
-  for (int i = 0 ; i < 12; i ++) {
-    display.fillRect(11 * i, 58, 5, 6, WHITE);
-    delay(timeIn / 12);
-    display.display();
-  }
-}
-
-void displayQuestionNum() {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(10, 0);
-  display.println(currentQuestion);
-  display.display();
-}
-
-void poweringDown() {
+// Draw power down icon
+void drawPowerdown() {
   display.clearDisplay();
   display.drawBitmap(32, 0, powering, 64, 64, 1);
   display.display();
   delay(1000);
 }
 
-void saving() {
+// Draw saving icon
+void drawSaving() {
   display.clearDisplay();
   display.drawBitmap(32, 0, saved, 64, 64, 1);
   display.display();
   delay(800);
 }
 
-void drawCam(int in) {
-  uint8_t color = 1;
-
+// Draw camera icon
+void drawCamera() {
+  display.clearDisplay();
   display.drawBitmap(32, 8, cam_logo, 64, 49, 1);
   display.display();
-  // delay(500);
-  // display.invertDisplay(in);
-  // display.display();
-  // delay(100);
-  //display.invertDisplay(0);
-  //display.display();
-  //delay(100);
 }
 
-void scrollText() {
-  scrollingPos = 0;
-  currentMillis = millis();
-  if (currentMillis - prevMillis >= SPEED_SCROLLING) {
-    //Serial.println();
-    if (scrollingPos < 96) scrollingPos = 128;
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 26);
-    display.setTextWrap(true);
-    display.print(inputBuffer);
-    //tick(5, 8);
-    applyTicks();
-    display.display();
-
-    scrollingPos -= 3;
-
-    prevMillis = currentMillis;
-
-  }
-}
-
+// Move question upwards
 void moveUp() {
-  Serial.println("UP!");
   scrollingPos = 26;
   int currentScrollingPos = scrollingPos;
 
@@ -587,21 +525,28 @@ void moveUp() {
 
     delay(10);
   }
-  /*
-    for (byte i = 0; i = 128; i++) {
-    for (byte j = 0; j < 4; j++) {
-      display.drawPixel(i, j, 0);
-    }
-    }
-    display.display();
-  */
+
+// Horizontal
+//  for (int i = 0; i < 128; i+= 4) {
+//    display.clearDisplay();
+//    display.setTextSize(1);
+//    display.setTextColor(WHITE);
+//    display.setTextWrap(true);
+//
+//    display.setCursor(i * -1, 26);
+//    display.print(prevQuestion);
+//
+//    display.setCursor(128 - i+1, 26);
+//    display.print(inputBuffer);
+//
+//    display.display();
+//  }
 }
 
+// Move question downwards
 void moveDown() {
   int currentScrollingPos = scrollingPos;
   scrollingPos = 26;
-
-
 
   for (int i = 0; i < 54; i += 3) {
     display.clearDisplay();
@@ -621,15 +566,20 @@ void moveDown() {
 
     delay(10);
   }
-  /*
-    for (byte i = 0; i = 128; i++) {
-    for (byte j = 0; j < 4; j++) {
-      display.drawPixel(i, j, 0);
-    }
-    }
-    display.display();
-  */
 
-
+// Horizontal
+//  for (int i = 0; i < 128; i+= 4) {
+//    display.clearDisplay();
+//    display.setTextSize(1);
+//    display.setTextColor(WHITE);
+//    display.setTextWrap(true);
+//
+//    display.setCursor(i, 26);
+//    display.print(prevQuestion);
+//
+//    display.setCursor((128 - i+1) * -1, 26);
+//    display.print(inputBuffer);
+//
+//    display.display();
+//  }
 }
-
