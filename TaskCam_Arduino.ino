@@ -152,7 +152,7 @@ void loop() { // run over and over
     flag = false;
     digitalWrite(10, 1);
     display.clearDisplay();
-    display.setCursor(6, 26);
+    display.setCursor(12, 26);
     display.println(F("Task Selected"));
     display.display();
     delay(400);
@@ -161,7 +161,7 @@ void loop() { // run over and over
     indexQuestions();
     delay(800);
     display.setTextSize(1);
-    display.setCursor(17, 42);
+    display.setCursor(23, 42);
     display.println(F("Take Photo"));
     display.display();
     byte picCam = 0;
@@ -414,23 +414,29 @@ void updateQuestion() {
   if (newQuestion) {
     newQuestion = false;
     digitalWrite(CAM_PWR, 1);
-    //display.clearDisplay();
-//    for (byte i = 0; i < 60; i++) {
-//      display.drawCircle(118, 54, 8, WHITE);
-//      fillArc2(118, 54, 0, i, 8, 8, 8, WHITE);
-//      display.display();
-//      delay(12);
-//    }
-    delay(1500);
+    for (byte j = 0; j < 9; j++) {
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setTextColor(WHITE);
+      display.setTextWrap(true);
+      display.setCursor(0, 26);
+      display.print(inputBuffer);
+      for (byte i = 0; i < 3; i++) {
+        if (i == j % 3) display.fillRect(105 + (7 * i), 54, 5, 7, WHITE);
+        else display.drawRect(105 + (7 * i), 54, 5, 7, WHITE);
+      }
+      display.display();
+      delay(100);
+    }
     //initialiseCamera();
     indexQuestions();
     delay(300);
     strncpy(prevQuestion, inputBuffer, 64);
     getQuestion(currentQuestionIndex);
     if (dir == 1) {
-      moveUp();
-    } else {
       moveDown();
+    } else {
+      moveUp();
     }
     drawTicks(questionTicks);
     display.display();
@@ -526,21 +532,21 @@ void moveUp() {
     delay(10);
   }
 
-// Horizontal
-//  for (int i = 0; i < 128; i+= 4) {
-//    display.clearDisplay();
-//    display.setTextSize(1);
-//    display.setTextColor(WHITE);
-//    display.setTextWrap(true);
-//
-//    display.setCursor(i * -1, 26);
-//    display.print(prevQuestion);
-//
-//    display.setCursor(128 - i+1, 26);
-//    display.print(inputBuffer);
-//
-//    display.display();
-//  }
+  // Horizontal
+  //  for (int i = 0; i < 128; i+= 4) {
+  //    display.clearDisplay();
+  //    display.setTextSize(1);
+  //    display.setTextColor(WHITE);
+  //    display.setTextWrap(true);
+  //
+  //    display.setCursor(i * -1, 26);
+  //    display.print(prevQuestion);
+  //
+  //    display.setCursor(128 - i+1, 26);
+  //    display.print(inputBuffer);
+  //
+  //    display.display();
+  //  }
 }
 
 // Move question downwards
@@ -567,19 +573,19 @@ void moveDown() {
     delay(10);
   }
 
-// Horizontal
-//  for (int i = 0; i < 128; i+= 4) {
-//    display.clearDisplay();
-//    display.setTextSize(1);
-//    display.setTextColor(WHITE);
-//    display.setTextWrap(true);
-//
-//    display.setCursor(i, 26);
-//    display.print(prevQuestion);
-//
-//    display.setCursor((128 - i+1) * -1, 26);
-//    display.print(inputBuffer);
-//
-//    display.display();
-//  }
+  // Horizontal
+  //  for (int i = 0; i < 128; i+= 4) {
+  //    display.clearDisplay();
+  //    display.setTextSize(1);
+  //    display.setTextColor(WHITE);
+  //    display.setTextWrap(true);
+  //
+  //    display.setCursor(i, 26);
+  //    display.print(prevQuestion);
+  //
+  //    display.setCursor((128 - i+1) * -1, 26);
+  //    display.print(inputBuffer);
+  //
+  //    display.display();
+  //  }
 }
