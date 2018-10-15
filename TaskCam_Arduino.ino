@@ -58,7 +58,7 @@ bool flag = false;
 
 SoftwareSerial camSerial(CAM_RX, CAM_TX); // RX, TX
 
-//#define DEBUG
+#define DEBUG
 
 void setup() {
 
@@ -76,12 +76,6 @@ void setup() {
 
   // LED
   pinMode(LED, OUTPUT);
-
-  delay(1000);
-
-  if (digitalRead(SHUTTER) != 0) {
-    digitalWrite(PWR_PIN, 0);
-  }
 
   // Camera Module Interface
   camSerial.begin(38400);
@@ -133,6 +127,7 @@ void setup() {
   display.setTextWrap(true);
   display.setCursor(0, 26);
   display.print(inputBuffer);
+  drawTicks(questionTicks);
   display.display();
 }
 
@@ -141,10 +136,8 @@ void loop() { // run over and over
   updateSleep();
   updateButtons();
   updateQuestion();
-
-  delay(1);
-
   updatePowerOff();
+
   if (digitalRead(SHUTTER) == 0 && flag == false) {
     flag = true;
   }
@@ -152,7 +145,7 @@ void loop() { // run over and over
     flag = false;
     digitalWrite(10, 1);
     display.clearDisplay();
-    display.setCursor(12, 26);
+    display.setCursor(12, 38);
     display.println(F("Task Selected"));
     display.display();
     delay(400);
@@ -160,14 +153,38 @@ void loop() { // run over and over
     delay(200);
     indexQuestions();
     delay(800);
-    display.setTextSize(1);
-    display.setCursor(23, 42);
-    display.println(F("Take Photo"));
-    display.display();
-    byte picCam = 0;
-    while (picCam == 0) {
+    for (int i = 0; i <= 64; i += 4) {
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setCursor(12, 38 - i);
+      display.println(F("Task Selected"));
+      display.setCursor(8, 38 + (64 - i));
+      display.println(F("Take Photo Now"));
+      display.display();
+      delay(10);
+    }
+    //    display.setTextSize(1);
+    //    display.setCursor(8, 42);
+    //    display.println(F("Take Photo Now"));
+    //    display.display();
+    boolean waiting = true;
+    while (waiting) {
       if (digitalRead(SHUTTER) == 0) {
-        picCam = 1;
+        waiting = false;
+      }
+      if (digitalRead(LEFT_BUTTON) == 0 || digitalRead(RIGHT_BUTTON) == 0) {
+        digitalWrite(CAM_PWR, LOW);
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setTextColor(WHITE);
+        display.setTextWrap(true);
+        display.setCursor(0, 26);
+        display.print(inputBuffer);
+        display.display();
+        sleepMillis = millis();
+        buttonHeldCount = millis();
+        delay(800);
+        return;
       }
     }
     delay(200);
@@ -179,10 +196,20 @@ void loop() { // run over and over
     display.setCursor(0, 25);
     display.clearDisplay();
     display.println(inputBuffer);
-    drawTicks(questionTicks);
-    display.display();
-    // getQuestion(currentQuestionIndex);
-    digitalWrite(10, 0);
+    // animate tick
+    if (questionTicks) {
+      for (int i = 0; i < questionTicks; i++) {
+        if (i == questionTicks - 1) {
+          display.display();
+          delay(500);
+        }
+        tick(5 + (i * 12), 8);
+        display.display();
+      }
+    }
+    digitalWrite(CAM_PWR, 0);
+    sleepMillis = millis();
+    buttonHeldCount = millis();
   }
 
 }
@@ -422,8 +449,8 @@ void updateQuestion() {
       display.setCursor(0, 26);
       display.print(inputBuffer);
       for (byte i = 0; i < 3; i++) {
-        if (i == j % 3) display.fillRect(105 + (7 * i), 54, 5, 7, WHITE);
-        else display.drawRect(105 + (7 * i), 54, 5, 7, WHITE);
+        if (i == j % 3) display.fillCircle(105 + (7 * i), 58, 2, WHITE);
+        else display.drawCircle(105 + (7 * i), 58, 2, WHITE);
       }
       display.display();
       delay(100);
@@ -449,6 +476,10 @@ void updateQuestion() {
 // Checks if enough time has passed to put the camera to sleep.
 void updateSleep() {
   if (millis() - sleepMillis > SLEEPTIME) {
+#ifdef DEBUG
+    Serial.println("SLEEP");
+    Serial.println(sleepMillis);
+#endif
     display.clearDisplay();
     display.drawBitmap(32, 0, powering, 64, 64, 1);
     display.display();
