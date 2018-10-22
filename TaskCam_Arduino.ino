@@ -200,11 +200,22 @@ void loop() { // run over and over
     if (questionTicks) {
       for (int i = 0; i < questionTicks; i++) {
         if (i == questionTicks - 1) {
+          int8_t x = 5 + (i * 12);
+          int8_t y =  8;
           display.display();
           delay(500);
+          for (int i = 0; i < 3; i++) {
+            display.drawPixel(x + i, y - 3 + i, WHITE);
+            display.display();
+            delay(80);
+          }
+          for (int i = 0; i <= 6; i++) {
+            display.drawLine(x + 3, y, x + 3 + i, y - i, WHITE);
+            display.display();
+            delay(80);
+          }
         }
-        tick(5 + (i * 12), 8);
-        display.display();
+        else tick(5 + (i * 12), 8);
       }
     }
     digitalWrite(CAM_PWR, 0);
@@ -250,7 +261,10 @@ void getQuestion(uint8_t question) {
 
   // Read question.
   for (uint8_t i = 0; i < 64 - questionTicks; i++) {
-    inputBuffer[i] = (char)camSerial.read();
+    if (camSerial.peek() >= 0x20 && camSerial.peek() < 0x7E) {
+      inputBuffer[i] = (char)camSerial.read();
+    }
+    else inputBuffer[i] = 0;
 #ifdef DEBUG
     Serial.print(inputBuffer[i]);
 #endif
@@ -441,30 +455,32 @@ void updateQuestion() {
   if (newQuestion) {
     newQuestion = false;
     digitalWrite(CAM_PWR, 1);
+    
+    // Wait animation
     for (byte j = 0; j < 9; j++) {
-      display.clearDisplay();
-      display.setTextSize(1);
-      display.setTextColor(WHITE);
-      display.setTextWrap(true);
-      display.setCursor(0, 26);
-      display.print(inputBuffer);
       for (byte i = 0; i < 3; i++) {
-        if (i == j % 3) display.fillCircle(105 + (7 * i), 58, 2, WHITE);
-        else display.drawCircle(105 + (7 * i), 58, 2, WHITE);
+        if (i == j % 3) display.fillCircle(105 + (7 * i), 58, 1, WHITE);
       }
       display.display();
       delay(100);
+      if (j % 3 == 2) {
+        for (int i = 0; i < 3; i++) display.fillCircle(105 + (7 * i), 58, 1, BLACK);
+        display.display();
+        delay(100);
+      }
     }
-    //initialiseCamera();
+    
     indexQuestions();
     delay(300);
     strncpy(prevQuestion, inputBuffer, 64);
     getQuestion(currentQuestionIndex);
+    
     if (dir == 1) {
       moveDown();
     } else {
       moveUp();
     }
+    
     drawTicks(questionTicks);
     display.display();
     scrollingPos = 0;
@@ -481,7 +497,8 @@ void updateSleep() {
     Serial.println(sleepMillis);
 #endif
     display.clearDisplay();
-    display.drawBitmap(32, 0, powering, 64, 64, 1);
+    //display.drawBitmap(32, 0, powering, 64, 64, 1);
+    display.drawBitmap(0, 0, powering, 128, 64, 1);
     display.display();
     delay(1000);
     digitalWrite(CAM_PWR, LOW);
@@ -519,7 +536,8 @@ void drawTicks(byte tickNum) {
 // Draw power down icon
 void drawPowerdown() {
   display.clearDisplay();
-  display.drawBitmap(32, 0, powering, 64, 64, 1);
+  //display.drawBitmap(32, 0, powering, 64, 64, 1);
+  display.drawBitmap(0, 0, powering, 128, 64, 1);
   display.display();
   delay(1000);
 }
@@ -527,7 +545,8 @@ void drawPowerdown() {
 // Draw saving icon
 void drawSaving() {
   display.clearDisplay();
-  display.drawBitmap(32, 0, saved, 64, 64, 1);
+  //display.drawBitmap(32, 0, saved, 64, 64, 1);
+  display.drawBitmap(0, 0, saved, 128, 64, 1);
   display.display();
   delay(800);
 }
@@ -535,7 +554,8 @@ void drawSaving() {
 // Draw camera icon
 void drawCamera() {
   display.clearDisplay();
-  display.drawBitmap(32, 8, cam_logo, 64, 49, 1);
+  //display.drawBitmap(32, 8, cam_logo, 64, 49, 1);
+  display.drawBitmap(0, 0, cam_logo, 128, 64, 1);
   display.display();
 }
 
