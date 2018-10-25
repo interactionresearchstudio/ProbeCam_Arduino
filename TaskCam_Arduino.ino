@@ -195,14 +195,23 @@ void loop() { // run over and over
     getQuestion(currentQuestionIndex);
     display.setCursor(0, 25);
     display.clearDisplay();
+    display.setTextWrap(true);
     display.println(inputBuffer);
     // animate tick
     if (questionTicks) {
+      if (questionTicks >= 9) questionTicks = 9;
       for (int i = 0; i < questionTicks; i++) {
         if (i == questionTicks - 1) {
           int8_t x = 5 + (i * 12);
-          int8_t y =  8;
-          display.display();
+          int8_t y = 8;
+          if (questionTicks == 9) {
+            display.setTextSize(1);
+            display.setTextColor(WHITE);
+            display.setTextWrap(false);
+            display.setCursor(5 + ((i + 1) * 12), 9);
+            display.print("+");
+            display.display();
+          }
           delay(500);
           for (int i = 0; i < 3; i++) {
             display.drawPixel(x + i, y - 3 + i, WHITE);
@@ -340,39 +349,27 @@ void capturePicture() {
   camSerial.write(0x0A);
   delay(1400);
 
-  while (camSerial.available() < 0) {
-    delay(1);
+  display.clearDisplay();
+  drawSaving();
+  while (camSerial.available() <= 0) {
+    // Wait animation
+    for (byte j = 0; j < 3; j++) {
+      for (byte i = 0; i < 3; i++) {
+        if (i == j % 3) display.fillCircle(105 + (7 * i), 58, 1, WHITE);
+      }
+      display.display();
+      delay(100);
+      if (j % 3 == 2) {
+        for (int i = 0; i < 3; i++) display.fillCircle(105 + (7 * i), 58, 1, BLACK);
+        display.display();
+        delay(100);
+      }
+    }
   }
-
-  //Ack for when picture finished saving... needs fixing as hang over from oversized Q in buffer
-  byte in = camSerial.read();
-  if (in == 0x06) {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(10, 0);
-    display.clearDisplay();
-    display.println(F("       ERROR"));
-    display.display();
-    delay(600);
-    display.display();
-  }
-  else {
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(35, 40);
-    analogWrite(LED, 0);
-    drawSaving();
-    display.display();
-    delay(800);
-  }
+  
   while (camSerial.available() > 0) {
     camSerial.read();
   }
-
-  // Wait for saving to complete
-  delay(1500);
 }
 
 void updatePowerOff() {
@@ -455,7 +452,7 @@ void updateQuestion() {
   if (newQuestion) {
     newQuestion = false;
     digitalWrite(CAM_PWR, 1);
-    
+
     // Wait animation
     for (byte j = 0; j < 9; j++) {
       for (byte i = 0; i < 3; i++) {
@@ -469,18 +466,18 @@ void updateQuestion() {
         delay(100);
       }
     }
-    
+
     indexQuestions();
     delay(300);
     strncpy(prevQuestion, inputBuffer, 64);
     getQuestion(currentQuestionIndex);
-    
+
     if (dir == 1) {
       moveDown();
     } else {
       moveUp();
     }
-    
+
     drawTicks(questionTicks);
     display.display();
     scrollingPos = 0;
@@ -528,7 +525,15 @@ void drawTicks(byte tickNum) {
   //byte tickNum = questionTicks;
   if (tickNum) {
     for (int i = 0; i < tickNum; i++) {
-      tick(5 + (i * 12), 8);
+      if (i >= 9) {
+        display.setTextSize(1);
+        display.setTextColor(WHITE);
+        display.setTextWrap(false);
+        display.setCursor(5 + (i * 12), 9);
+        display.print("+");
+        break;
+      }
+      else tick(5 + (i * 12), 8);
     }
   }
 }
@@ -544,11 +549,8 @@ void drawPowerdown() {
 
 // Draw saving icon
 void drawSaving() {
-  display.clearDisplay();
   //display.drawBitmap(32, 0, saved, 64, 64, 1);
   display.drawBitmap(0, 0, saved, 128, 64, 1);
-  display.display();
-  delay(800);
 }
 
 // Draw camera icon
