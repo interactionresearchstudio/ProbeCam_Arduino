@@ -344,6 +344,8 @@ void capturePicture() {
   camSerial.write(0x0A);
   delay(1400);
 
+  analogWrite(LED, 0);
+
   // Wait for saving to complete
   display.clearDisplay();
   drawSaving();
