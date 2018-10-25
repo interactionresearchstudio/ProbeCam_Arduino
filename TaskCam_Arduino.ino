@@ -1,12 +1,6 @@
-/* Taskcam v2 software for IRS Taskcam v2 Camera Shield + IRS Taskcam Camera Module */
+/* Taskcam software for IRS TaskCam Shield + IRS Taskcam Camera Module */
 /* Written by Andy Sheen 2017/2018 */
 
-/*~~~~~~~~~~TO DO~~~~~~~~~~*/
-/*
-   - Add photo save bitmap
-   - Add sleep mode bitmap
-   - Add Contrast/Light/FX menu (bonus)
-*/
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <Wire.h>
@@ -58,7 +52,7 @@ bool flag = false;
 
 SoftwareSerial camSerial(CAM_RX, CAM_TX); // RX, TX
 
-#define DEBUG
+//#define DEBUG
 
 void setup() {
 
@@ -131,8 +125,8 @@ void setup() {
   display.display();
 }
 
-void loop() { // run over and over
-
+void loop() {
+  // Timing and update functions
   updateSleep();
   updateButtons();
   updateQuestion();
@@ -142,6 +136,7 @@ void loop() { // run over and over
     flag = true;
   }
   if (digitalRead(SHUTTER) == 1 && flag == true) {
+    // Select task
     flag = false;
     digitalWrite(10, 1);
     display.clearDisplay();
@@ -163,16 +158,13 @@ void loop() { // run over and over
       display.display();
       delay(10);
     }
-    //    display.setTextSize(1);
-    //    display.setCursor(8, 42);
-    //    display.println(F("Take Photo Now"));
-    //    display.display();
     boolean waiting = true;
     while (waiting) {
       if (digitalRead(SHUTTER) == 0) {
         waiting = false;
       }
       if (digitalRead(LEFT_BUTTON) == 0 || digitalRead(RIGHT_BUTTON) == 0) {
+        // Cancelled task
         digitalWrite(CAM_PWR, LOW);
         display.clearDisplay();
         display.setTextSize(1);
@@ -187,6 +179,7 @@ void loop() { // run over and over
         return;
       }
     }
+    // Capture picture
     delay(200);
     analogWrite(LED, 255);
     drawCamera();
@@ -197,7 +190,7 @@ void loop() { // run over and over
     display.clearDisplay();
     display.setTextWrap(true);
     display.println(inputBuffer);
-    // animate tick
+    // Animate tick
     if (questionTicks) {
       if (questionTicks >= 9) questionTicks = 9;
       for (int i = 0; i < questionTicks; i++) {
@@ -234,6 +227,7 @@ void loop() { // run over and over
 
 }
 
+// Get question
 void getQuestion(uint8_t question) {
   // Flush serial
   while (camSerial.available() > 0) {
@@ -343,12 +337,14 @@ void capturePicture() {
     camSerial.read();
   }
 
+  // Send "Take photo" command to camera module
   camSerial.write(0x21);
   camSerial.write((uint8_t)currentQuestionIndex);
   camSerial.write(0x0D);
   camSerial.write(0x0A);
   delay(1400);
 
+  // Wait for saving to complete
   display.clearDisplay();
   drawSaving();
   while (camSerial.available() <= 0) {
@@ -366,12 +362,14 @@ void capturePicture() {
       }
     }
   }
-  
+
+  // Flush serial
   while (camSerial.available() > 0) {
     camSerial.read();
   }
 }
 
+// Update power-off checking
 void updatePowerOff() {
   int butRead = digitalRead(SHUTTER);
   if (butRead == 0 && buttonHeld == false) {
@@ -405,6 +403,7 @@ void updatePowerOff() {
   }
 }
 
+// Update button events
 void updateButtons() {
 
   if (millis() - buttonCheck > buttonInterval) {
@@ -447,7 +446,7 @@ void updateButtons() {
   }
 }
 
-
+// Get next or previous question
 void updateQuestion() {
   if (newQuestion) {
     newQuestion = false;
@@ -486,7 +485,7 @@ void updateQuestion() {
   }
 }
 
-// Checks if enough time has passed to put the camera to sleep.
+// Check if enough time has passed to put the camera to sleep.
 void updateSleep() {
   if (millis() - sleepMillis > SLEEPTIME) {
 #ifdef DEBUG
@@ -503,7 +502,7 @@ void updateSleep() {
   }
 }
 
-// Displays the ProbeTools logo.
+// Display the ProbeTools logo.
 void startUpScreen() {
 #ifdef DEBUG
   Serial.println(F("startup"));
@@ -584,22 +583,6 @@ void moveUp() {
 
     delay(10);
   }
-
-  // Horizontal
-  //  for (int i = 0; i < 128; i+= 4) {
-  //    display.clearDisplay();
-  //    display.setTextSize(1);
-  //    display.setTextColor(WHITE);
-  //    display.setTextWrap(true);
-  //
-  //    display.setCursor(i * -1, 26);
-  //    display.print(prevQuestion);
-  //
-  //    display.setCursor(128 - i+1, 26);
-  //    display.print(inputBuffer);
-  //
-  //    display.display();
-  //  }
 }
 
 // Move question downwards
@@ -625,20 +608,4 @@ void moveDown() {
 
     delay(10);
   }
-
-  // Horizontal
-  //  for (int i = 0; i < 128; i+= 4) {
-  //    display.clearDisplay();
-  //    display.setTextSize(1);
-  //    display.setTextColor(WHITE);
-  //    display.setTextWrap(true);
-  //
-  //    display.setCursor(i, 26);
-  //    display.print(prevQuestion);
-  //
-  //    display.setCursor((128 - i+1) * -1, 26);
-  //    display.print(inputBuffer);
-  //
-  //    display.display();
-  //  }
 }
